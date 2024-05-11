@@ -1,25 +1,32 @@
 // @ts-check
 
 const { resolve: resolveExports } = require("resolve.exports");
-const path = require("node:path");
-const fs = require("node:fs");
-const { builtinModules } = require("node:module");
+const path = require("path");
+const fs = require("fs");
+const { builtinModules } = require("module");
 
 /**
- * Remove any trailing querystring from module id.
+ * Remove prefix and querystrings from the source.
+ * When using node: prefix, we should remove it.
  * Some imports may have querystrings, for example:
  *  * import "foo?bar";
  *
- * @param {string} id module id
+ * @param {string} source the import source
+ *
+ * @retures {string} cleaned source
  */
-function removeQuerystring(id) {
-  const querystringIndex = id.lastIndexOf("?");
-
-  if (querystringIndex > -1) {
-    return id.slice(0, querystringIndex);
+function cleanSource(/** @type {string} */ source) {
+  if (source.indexOf("node:") === 0) {
+    return source.slice(5);
   }
 
-  return id;
+  const querystringIndex = source.lastIndexOf("?");
+
+  if (querystringIndex > -1) {
+    return source.slice(0, querystringIndex);
+  }
+
+  return source;
 }
 
 exports.interfaceVersion = 2;
@@ -30,17 +37,18 @@ exports.interfaceVersion = 2;
  * @param {string} source source
  * @param {string} file file
  * @param {import("resolve.exports").Options} config config
+ *
  */
 exports.resolve = function (source, file, config) {
   if (source.startsWith(".") || source.startsWith("/")) {
     return { found: false };
   }
 
-  if (builtinModules.includes(source)) {
+  const cleanedSource = cleanSource(source);
+
+  if (builtinModules.includes(cleanedSource)) {
     return { found: true, path: null };
   }
-
-  const cleanedSource = removeQuerystring(source);
 
   try {
     const moduleId = require.resolve(cleanedSource, {
@@ -48,7 +56,7 @@ exports.resolve = function (source, file, config) {
     });
 
     return { found: true, path: moduleId };
-  } catch (e) {
+  } catch (/** @type {any} */ e) {
     if (
       e.code === "MODULE_NOT_FOUND" &&
       e.path &&
