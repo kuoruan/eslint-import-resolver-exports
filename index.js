@@ -4,40 +4,18 @@ const { resolve: resolveExports } = require("resolve.exports");
 const path = require("path");
 const fs = require("fs");
 const { builtinModules } = require("module");
-
-/**
- * Remove prefix and querystrings from the source.
- * When using node: prefix, we should remove it.
- * Some imports may have querystrings, for example:
- *  * import "foo?bar";
- *
- * @param {string} source the import source
- *
- * @retures {string} cleaned source
- */
-function cleanSource(/** @type {string} */ source) {
-  if (source.indexOf("node:") === 0) {
-    return source.slice(5);
-  }
-
-  const querystringIndex = source.lastIndexOf("?");
-
-  if (querystringIndex > -1) {
-    return source.slice(0, querystringIndex);
-  }
-
-  return source;
-}
+const { cleanSource, findPackageJson } = require("./utils");
 
 exports.interfaceVersion = 2;
 
 /**
  * Resolve the module id.
  *
- * @param {string} source source
+ * @param {string} source import source
  * @param {string} file file
  * @param {import("resolve.exports").Options} config config
  *
+ * @returns {{found: boolean, path?: string | null}} result
  */
 exports.resolve = function (source, file, config) {
   if (source.startsWith(".") || source.startsWith("/")) {
@@ -50,19 +28,40 @@ exports.resolve = function (source, file, config) {
     return { found: true, path: null };
   }
 
+  const filepath = path.dirname(file);
+
   try {
     const moduleId = require.resolve(cleanedSource, {
-      paths: [path.dirname(file)],
+      paths: [filepath],
     });
 
     return { found: true, path: moduleId };
   } catch (/** @type {any} */ e) {
-    if (
-      e.code === "MODULE_NOT_FOUND" &&
-      e.path &&
-      e.path.endsWith("/package.json")
-    ) {
-      const { exports, main, module, name } = require(e.path);
+    if (e.code === "MODULE_NOT_FOUND") {
+      let packageJson;
+
+      // if the source is a package.json file
+      if (e.path && e.path.endsWith("/package.json")) {
+        packageJson = e.path;
+      } else {
+        // get the package name from the source
+        const [packageNameOrScope, packageNameOrPath] = cleanedSource.split(
+          "/",
+          3
+        );
+
+        const packageName = packageNameOrScope.startsWith("@")
+          ? packageNameOrScope + "/" + packageNameOrPath
+          : packageNameOrScope;
+
+        packageJson = findPackageJson(filepath, packageName);
+      }
+
+      if (!packageJson) {
+        return { found: false };
+      }
+
+      const { exports, main, module, name } = require(packageJson);
 
       const resolved = resolveExports(
         { name, exports, module, main },
@@ -74,7 +73,7 @@ exports.resolve = function (source, file, config) {
         return { found: false };
       }
 
-      const packagePath = path.dirname(e.path);
+      const packagePath = path.dirname(packageJson);
 
       if (resolved.length === 1) {
         const moduleId = path.join(packagePath, resolved[0]);

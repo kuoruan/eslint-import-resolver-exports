@@ -6,7 +6,8 @@
   "repository": "https://github.com/kuoruan/eslint-import-resolver-exports",
   "license": "MIT",
   "files": [
-    "index.js"
+    "index.js",
+    "utils.js"
   ],
   "engines": {
     "node": ">=10"
