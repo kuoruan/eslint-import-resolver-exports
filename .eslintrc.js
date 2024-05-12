@@ -6,8 +6,10 @@ module.exports = {
     es6: true,
     mocha: true,
   },
+  parser: "@babel/eslint-parser",
   parserOptions: {
     ecmaVersion: 6,
+    requireConfigFile: false,
   },
   extends: ["eslint:recommended", "plugin:prettier/recommended"],
 };
