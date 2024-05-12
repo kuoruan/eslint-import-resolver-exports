@@ -1,6 +1,9 @@
 // @ts-check
 
-const { resolve: resolveExports } = require("resolve.exports");
+const {
+  resolve: resolveModern,
+  legacy: resolveLegacy,
+} = require("resolve.exports");
 const path = require("path");
 const fs = require("fs");
 const { builtinModules } = require("module");
@@ -9,13 +12,27 @@ const { cleanSource, findPackageJson } = require("./utils");
 exports.interfaceVersion = 2;
 
 /**
+ * @typedef {Object} LegacyOptions - The options for the legacy resolve function
+ * @prop {string | boolean} [browser=false]
+ *  - the brower option of resolve.exports legacy options
+ *  - https://github.com/lukeed/resolve.exports/tree/master?tab=readme-ov-file#optionsbrowser-1
+ * @prop {string[]} [fields=['module', 'main']]
+ *  - the fields option of resolve.exports legacy options
+ *  - https://github.com/lukeed/resolve.exports/tree/master?tab=readme-ov-file#optionsfields
+ *
+ * @typedef {import("resolve.exports").Options & { legacy?: LegacyOptions | false }} Config
+ *
+ * @typedef {{found: boolean, path?: string | null}} ResolveResult
+ */
+
+/**
  * Resolve the module id.
  *
- * @param {string} source import source
- * @param {string} file file
- * @param {import("resolve.exports").Options} config config
+ * @param {string} source - import source
+ * @param {string} file - file
+ * @param {Config} config - config
  *
- * @returns {{found: boolean, path?: string | null}} result
+ * @returns {ResolveResult} result
  */
 exports.resolve = function (source, file, config) {
   if (source.startsWith(".") || source.startsWith("/")) {
@@ -28,55 +45,40 @@ exports.resolve = function (source, file, config) {
     return { found: true, path: null };
   }
 
-  const filepath = path.dirname(file);
+  // get the package name from the source
+  const [packageNameOrScope, packageNameOrPath] = cleanedSource.split("/", 3);
+
+  const packageName = packageNameOrScope.startsWith("@")
+    ? packageNameOrScope + "/" + packageNameOrPath
+    : packageNameOrScope;
 
   try {
-    const moduleId = require.resolve(cleanedSource, {
-      paths: [filepath],
-    });
+    const filepath = path.dirname(file);
 
-    return { found: true, path: moduleId };
-  } catch (/** @type {any} */ e) {
-    if (e.code === "MODULE_NOT_FOUND") {
-      let packageJson;
+    let pkgFile = findPackageJson(filepath, packageName);
 
-      // if the source is a package.json file
-      if (e.path && e.path.endsWith("/package.json")) {
-        packageJson = e.path;
-      } else {
-        // get the package name from the source
-        const [packageNameOrScope, packageNameOrPath] = cleanedSource.split(
-          "/",
-          3
-        );
+    if (!pkgFile) {
+      return { found: false };
+    }
 
-        const packageName = packageNameOrScope.startsWith("@")
-          ? packageNameOrScope + "/" + packageNameOrPath
-          : packageNameOrScope;
+    const pkg = JSON.parse(fs.readFileSync(pkgFile, "utf8"));
 
-        packageJson = findPackageJson(filepath, packageName);
-      }
+    const resolved = resolveModern(
+      {
+        // use packageName to support alias packages
+        name: packageName,
+        exports: pkg.exports,
+        imports: pkg.imports,
+      },
+      cleanedSource,
+      config
+    );
 
-      if (!packageJson) {
-        return { found: false };
-      }
+    const packagePath = path.dirname(pkgFile);
 
-      const { exports, main, module, name } = require(packageJson);
-
-      const resolved = resolveExports(
-        { name, exports, module, main },
-        cleanedSource,
-        config
-      );
-
-      if (!resolved || resolved.length === 0) {
-        return { found: false };
-      }
-
-      const packagePath = path.dirname(packageJson);
-
+    if (resolved && resolved.length > 0) {
       if (resolved.length === 1) {
-        const moduleId = path.join(packagePath, resolved[0]);
+        const moduleId = path.resolve(packagePath, resolved[0]);
 
         return { found: true, path: moduleId };
       }
@@ -86,13 +88,42 @@ exports.resolve = function (source, file, config) {
        * find the first one that exists and return it
        */
       for (const r of resolved) {
-        const moduleId = path.join(packagePath, r);
+        const moduleId = path.resolve(packagePath, r);
 
         if (fs.existsSync(moduleId)) {
           return { found: true, path: moduleId };
         }
       }
     }
+
+    if (config.legacy !== false) {
+      const legacyResolved = resolveLegacy(
+        {
+          ...pkg,
+          name: packageName,
+        },
+        { ...config.legacy }
+      );
+
+      if (legacyResolved) {
+        if (typeof legacyResolved === "string") {
+          return {
+            found: true,
+            path: path.resolve(packagePath, legacyResolved),
+          };
+        } else if (Array.isArray(legacyResolved)) {
+          for (const r of legacyResolved) {
+            const moduleId = path.resolve(packagePath, r);
+
+            if (fs.existsSync(moduleId)) {
+              return { found: true, path: moduleId };
+            }
+          }
+        }
+      }
+    }
+  } catch (/** @type any */ err) {
+    return { found: false };
   }
 
   return { found: false };
