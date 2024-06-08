@@ -13,7 +13,10 @@
     "node": ">=10"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "lint": "eslint --ext .js .",
+    "lint:fix": "eslint --ext .js --fix .",
+    "prepublishOnly": "npm run test"
   },
   "dependencies": {
     "resolve.exports": "^2.0.2"
