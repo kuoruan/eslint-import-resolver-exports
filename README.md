@@ -1,10 +1,16 @@
-# eslint-import-resolver-exports
+# eslint-import-resolver-next
 
 This package adds [`package.json#exports`](https://nodejs.org/api/packages.html#exports) support to [`eslint-plugin-import`](https://www.npmjs.com/package/eslint-plugin-import) using the [resolve.exports](https://github.com/lukeed/resolve.exports) package.
 
 ## Usage
 
-Install with `npm install -D eslint-import-resolver-exports` and add it as a resolver to your ESLint configuration. You should always include another resolver (e.g. `eslint-import-resolver-node` or `eslint-import-resolver-typescript`) since this resolver only supports `package.json#exports` and not the other Node.js resolution features.
+1. Install the package:
+
+```sh
+npm install -D eslint-import-resolver-next
+```
+
+2. Add it as a resolver to your ESLint configuration. You should always include another resolver (e.g. `eslint-import-resolver-node` or `eslint-import-resolver-typescript`) since this resolver only supports `package.json#exports` and not the other Node.js resolution features.
 
 Example config:
 
@@ -38,4 +44,6 @@ module.exports = {
 
 ## Credits and license
 
-- By Fatih Aygün under [MIT license](./LICENSE)
+This package is based on the [`eslint-import-resolver-exports`](https://github.com/cyco130/eslint-import-resolver-exports) package by Fatih Aygün. It is licensed under the MIT license.
+
+This package is maintained by [Xingwang Liao](https://github.com/kuoruan).

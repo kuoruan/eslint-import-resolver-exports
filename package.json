@@ -1,6 +1,6 @@
 {
-  "name": "eslint-import-resolver-exports",
-  "version": "1.0.0-beta.4",
+  "name": "eslint-import-resolver-next",
+  "version": "0.1.0",
   "main": "./index.js",
   "description": "`package.json` `exports` field resolver for `eslint-plugin-import`",
   "repository": "https://github.com/kuoruan/eslint-import-resolver-exports",
