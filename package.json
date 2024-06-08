@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "main": "./index.js",
   "description": "`package.json` `exports` field resolver for `eslint-plugin-import`",
-  "repository": "https://github.com/kuoruan/eslint-import-resolver-exports",
+  "repository": "https://github.com/kuoruan/eslint-import-resolver-next",
   "license": "MIT",
   "files": [
     "index.js",
